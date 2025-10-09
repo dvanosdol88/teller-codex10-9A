@@ -1,0 +1,332 @@
+:root {
+  color-scheme: light;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --gradient-start: #1a73e8;
+  --gradient-end: #13c4a3;
+  --surface: rgba(255, 255, 255, 0.85);
+  --shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  --shadow-small: 0 10px 30px rgba(15, 23, 42, 0.2);
+  --text-primary: #0f172a;
+  --text-muted: rgba(15, 23, 42, 0.64);
+  --border: rgba(255, 255, 255, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: linear-gradient(135deg, rgba(26, 115, 232, 0.9), rgba(19, 196, 163, 0.9));
+  color: var(--text-primary);
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.page {
+  width: min(1100px, 100%);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  padding: 32px 40px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.page__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.page__header h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 540px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-small);
+}
+
+.status-bar .label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.status-bar .value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 28px;
+}
+
+.card {
+  perspective: 1600px;
+  height: 360px;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.card.is-flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  padding: 24px;
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(26, 115, 232, 0.93), rgba(19, 196, 163, 0.93));
+  color: white;
+  box-shadow: var(--shadow-small);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  backface-visibility: hidden;
+}
+
+.card-face--back {
+  transform: rotateY(180deg);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 64, 175, 0.95));
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.card-header .account-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.card-header .account-subtitle {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.balance-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.balance-values .label,
+.balance-meta .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.balance-values .value {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.balance-meta {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.transactions {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.transactions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transactions-list li {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.transactions-list .details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.transactions-list .description {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.transactions-list .date {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.transactions-list .amount {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.transactions-empty {
+  margin-top: auto;
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.transactions-cached {
+  font-size: 0.75rem;
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.btn {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.btn--primary {
+  background: linear-gradient(145deg, #1a73e8, #2563eb);
+  color: white;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+}
+
+.btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn--secondary {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid rgba(15, 23, 42, 0.2);
+}
+
+.card-face .btn--ghost {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn--sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  border-radius: 24px;
+  border: 1px dashed rgba(15, 23, 42, 0.2);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
+}
+
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  min-width: 240px;
+  background: rgba(15, 23, 42, 0.92);
+  color: white;
+  padding: 14px 18px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-small);
+  font-size: 0.9rem;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 16px;
+  }
+  .page {
+    padding: 24px;
+  }
+  .card {
+    height: 380px;
+  }
+}
