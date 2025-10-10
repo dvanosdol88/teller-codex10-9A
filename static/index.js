@@ -134,13 +134,7 @@ class Dashboard {
   setupConnect() {
     const connectBtn = document.getElementById('connect-btn');
     const disconnectBtn = document.getElementById('disconnect-btn');
-    if (typeof window.TellerConnect === 'undefined') {
-      console.error('Teller Connect script failed to load.');
-      connectBtn?.setAttribute('disabled', 'disabled');
-      showToast('Unable to load Teller Connect. Check your network and refresh.', 'error');
-      return;
-    }
-    const connector = window.TellerConnect.setup({
+    const connector = TellerConnect.setup({
       applicationId: APPLICATION_ID,
       environment: ENVIRONMENT,
       onSuccess: async (enrollment) => {
