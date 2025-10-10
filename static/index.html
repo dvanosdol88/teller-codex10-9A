@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Teller Cached Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script defer src="https://cdn.teller.io/connect/connect.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="page__header">
+        <div>
+          <h1>Teller Cached Dashboard</h1>
+          <p class="subtitle">Flip each card to inspect cached balances and transactions. Refresh live data whenever you need the latest snapshot.</p>
+        </div>
+        <div class="actions">
+          <button id="connect-btn" class="btn btn--primary">Connect an account</button>
+          <button id="disconnect-btn" class="btn btn--ghost" hidden>Disconnect</button>
+        </div>
+      </header>
+      <section class="status-bar">
+        <div>
+          <span class="label">Environment</span>
+          <span id="status-environment" class="value"></span>
+        </div>
+        <div>
+          <span class="label">User</span>
+          <span id="status-user" class="value">Not connected</span>
+        </div>
+        <div>
+          <span class="label">Access token</span>
+          <span id="status-token" class="value">—</span>
+        </div>
+      </section>
+      <main>
+        <div id="empty-state" class="empty-state hidden">
+          <h2>No accounts yet</h2>
+          <p>Use the “Connect an account” button to complete Teller Connect and load cached balances.</p>
+        </div>
+        <div id="accounts-grid" class="cards-grid" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <template id="account-card-template">
+      <div class="card" data-account-id="">
+        <div class="card-inner">
+          <div class="card-face card-face--front">
+            <div class="card-header">
+              <div>
+                <div class="account-name"></div>
+                <div class="account-subtitle"></div>
+              </div>
+              <button class="btn btn--ghost btn--sm flip-btn" type="button">Recent activity</button>
+            </div>
+            <div class="balance-values">
+              <div>
+                <span class="label">Available</span>
+                <span class="value balance-available">—</span>
+              </div>
+              <div>
+                <span class="label">Ledger</span>
+                <span class="value balance-ledger">—</span>
+              </div>
+            </div>
+            <div class="balance-meta">
+              <span class="label">Last cached</span>
+              <span class="value balance-cached">Never</span>
+            </div>
+            <button class="btn btn--secondary refresh-btn" type="button">Refresh live</button>
+          </div>
+          <div class="card-face card-face--back">
+            <div class="card-header">
+              <div>
+                <div class="account-name"></div>
+                <div class="account-subtitle"></div>
+              </div>
+              <button class="btn btn--ghost btn--sm flip-btn" type="button">Back to balance</button>
+            </div>
+            <div class="transactions">
+              <ul class="transactions-list"></ul>
+              <div class="transactions-empty hidden">No cached transactions yet.</div>
+              <div class="transactions-cached"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/static/index.js"></script>
+  </body>
+</html>
