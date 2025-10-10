@@ -10,6 +10,7 @@ from typing import Optional
 
 import falcon
 from google.cloud import secretmanager
+from waitress import serve
 
 try:
     from . import db, models
@@ -88,31 +89,40 @@ class HealthResource:
         resp.set_header("Cache-Control", "no-store")
 
 
-def _default_secret_path(filename: str) -> Optional[str]:
-    """Return the path to a secret in the ./secrets directory if it exists."""
+class ConfigResource:
+    def __init__(self, config: dict[str, str]) -> None:
+        self.config = config
 
-    project_root = pathlib.Path(__file__).resolve().parent.parent
-    secrets_dir = project_root / "secrets"
-    candidate = secrets_dir / filename
-    if candidate.exists():
-        return str(candidate)
-    return None
+    def on_get(self, req: falcon.Request, resp: falcon.Response) -> None:
+        resp.media = self.config
+        resp.set_header("Cache-Control", "no-store")
 
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Teller Falcon sample server")
-    parser.add_argument("--application-id", default="app_pj4c5t83p8q0ibrr8k000")
+    parser.add_argument(
+        "--application-id",
+        default=os.getenv("TELLER_APPLICATION_ID"),
+    )
+    parser.add_argument(
+        "--environment",
+        default=os.getenv("TELLER_ENVIRONMENT", "development"),
+    )
     parser.add_argument(
         "--certificate",
-        default=os.getenv("TELLER_CERTIFICATE") or _default_secret_path("certificate.pem") or _default_secret_path("certificate"),
+        default=os.getenv("TELLER_CERTIFICATE"),
     )
     parser.add_argument(
         "--private-key",
-        default=os.getenv("TELLER_PRIVATE_KEY") or _default_secret_path("private_key.pem") or _default_secret_path("private_key"),
+        default=os.getenv("TELLER_PRIVATE_KEY"),
     )
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8001")))
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--db-echo", action="store_true")
+    parser.add_argument(
+        "--app-api-base-url",
+        default=os.getenv("TELLER_APP_API_BASE_URL", "/api"),
+    )
     parser.add_argument(
         "--gcp-project-id", default=os.getenv("GCP_PROJECT_ID")
     )
@@ -124,11 +134,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     )
     args = parser.parse_args(argv)
 
-    # Force the environment to development mode.
-    args.environment = "development"
-
     if not args.application_id:
         parser.error("--application-id or TELLER_APPLICATION_ID is required")
+
+    if not args.environment:
+        parser.error("--environment or TELLER_ENVIRONMENT is required")
 
     # If secret names are provided via command line arguments or environment
     # variables, fetch the certificate and private key from Google Cloud Secret
@@ -171,7 +181,14 @@ def create_app(args: argparse.Namespace) -> falcon.App:
     app.add_route("/", IndexResource(static_root))
     app.add_route("/static/{filename}", StaticResource(static_root))
 
+    runtime_config = {
+        "applicationId": args.application_id,
+        "environment": args.environment,
+        "apiBaseUrl": args.app_api_base_url,
+    }
+
     app.add_route("/api/healthz", HealthResource(args.environment))
+    app.add_route("/api/config", ConfigResource(runtime_config))
     app.add_route("/api/connect/token", ConnectTokenResource(session_factory, teller_client))
     app.add_route("/api/enrollments", EnrollmentResource(session_factory, teller_client))
     app.add_route("/api/db/accounts", AccountsResource(session_factory, teller_client))
@@ -199,11 +216,8 @@ def main(argv: Optional[list[str]] = None) -> None:
     args = parse_args(argv)
     app = create_app(args)
 
-    from wsgiref import simple_server
-
-    httpd = simple_server.make_server("0.0.0.0", args.port, app)
     LOGGER.info("Listening on http://0.0.0.0:%s", args.port)
-    httpd.serve_forever()
+    serve(app, host="0.0.0.0", port=args.port)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,29 @@
-const APPLICATION_ID = 'app_pj4c5t83p8q0ibrr8k000';
-const ENVIRONMENT = 'development';
-const BASE_URL = '/api';
-
 const STORE_KEY = 'teller:enrollment';
 const MAX_TRANSACTIONS = 10;
 
 const toastEl = document.getElementById('toast');
+
+let runtimeConfig = null;
+
+async function fetchRuntimeConfig() {
+  const response = await fetch('/api/config', { credentials: 'same-origin' });
+  if (!response.ok) {
+    throw new Error(`Failed to load runtime configuration: ${response.status}`);
+  }
+  const payload = await response.json();
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Runtime configuration payload was empty.');
+  }
+  const applicationId = typeof payload.applicationId === 'string' ? payload.applicationId.trim() : '';
+  const environment = typeof payload.environment === 'string' ? payload.environment : 'development';
+  const apiBaseUrl = typeof payload.apiBaseUrl === 'string' && payload.apiBaseUrl ? payload.apiBaseUrl : '/api';
+  if (!applicationId) {
+    throw new Error('Runtime configuration is missing applicationId.');
+  }
+  runtimeConfig = { applicationId, environment, apiBaseUrl };
+  window.__tellerRuntimeConfig = runtimeConfig;
+  return runtimeConfig;
+}
 
 function showToast(message, variant = 'info') {
   if (!toastEl) return;
@@ -75,6 +93,7 @@ function clearEnrollment() {
 async function apiRequest(path, { method = 'GET', body, headers = {}, params } = {}) {
   const token = window.__tellerAccessToken;
   if (!token) throw new Error('Missing access token');
+  const baseUrl = runtimeConfig?.apiBaseUrl || '/api';
   const finalHeaders = {
     Authorization: `Bearer ${token}`,
     ...headers,
@@ -87,7 +106,7 @@ async function apiRequest(path, { method = 'GET', body, headers = {}, params } =
     }
   }
   if (params) { options.params = params; }
-  const response = await fetch(`${BASE_URL}${path}`, options);
+  const response = await fetch(`${baseUrl}${path}`, options);
   if (!response.ok) {
     let payload;
     try {
@@ -109,7 +128,8 @@ async function apiRequest(path, { method = 'GET', body, headers = {}, params } =
 }
 
 class Dashboard {
-  constructor() {
+  constructor(config) {
+    this.config = config;
     this.grid = document.getElementById('accounts-grid');
     this.emptyState = document.getElementById('empty-state');
     this.statusEnvironment = document.getElementById('status-environment');
@@ -120,7 +140,9 @@ class Dashboard {
   }
 
   init() {
-    this.statusEnvironment.textContent = ENVIRONMENT;
+    if (this.statusEnvironment) {
+      this.statusEnvironment.textContent = this.config.environment;
+    }
     const enrollment = getStoredEnrollment();
     if (enrollment?.accessToken) {
       this.onConnected(enrollment);
@@ -134,9 +156,15 @@ class Dashboard {
   setupConnect() {
     const connectBtn = document.getElementById('connect-btn');
     const disconnectBtn = document.getElementById('disconnect-btn');
+    const { applicationId, environment } = this.config;
+    if (!applicationId || !environment) {
+      console.error('Runtime configuration is missing required Teller Connect values.');
+      connectBtn?.setAttribute('disabled', 'true');
+      return;
+    }
     const connector = window.TellerConnect.setup({
-      applicationId: APPLICATION_ID,
-      environment: ENVIRONMENT,
+      applicationId,
+      environment,
       onSuccess: async (enrollment) => {
         try {
           window.__tellerAccessToken = enrollment.accessToken;
@@ -166,9 +194,12 @@ class Dashboard {
       clearEnrollment();
       window.__tellerAccessToken = undefined;
       this.reset();
+      if (this.statusEnvironment) {
+        this.statusEnvironment.textContent = this.config.environment;
+      }
       setHidden(this.emptyState, false);
       connectBtn?.focus();
-      disconnectBtn.hidden = true;
+      if (disconnectBtn) disconnectBtn.hidden = true;
       showToast('Disconnected. Connect again to load data.');
     });
   }
@@ -176,7 +207,9 @@ class Dashboard {
   async bootstrap() {
     try {
       setHidden(this.emptyState, true);
-      this.grid.innerHTML = '';
+      if (this.grid) {
+        this.grid.innerHTML = '';
+      }
       this.cards.clear();
       const data = await apiRequest('/db/accounts');
       const accounts = data?.accounts ?? [];
@@ -199,21 +232,35 @@ class Dashboard {
 
   onConnected(enrollment) {
     window.__tellerAccessToken = enrollment.accessToken;
-    this.statusUser.textContent = enrollment.user?.id ?? 'Connected';
-    this.statusToken.textContent = enrollment.accessToken;
+    if (this.statusUser) {
+      this.statusUser.textContent = enrollment.user?.id ?? 'Connected';
+    }
+    if (this.statusToken) {
+      this.statusToken.textContent = enrollment.accessToken ?? '—';
+    }
+    if (this.statusEnvironment) {
+      this.statusEnvironment.textContent = this.config.environment;
+    }
     const disconnect = document.getElementById('disconnect-btn');
     if (disconnect) disconnect.hidden = false;
     setHidden(this.emptyState, true);
   }
 
   reset() {
-    this.statusUser.textContent = 'Not connected';
-    this.statusToken.textContent = '—';
-    this.grid.innerHTML = '';
+    if (this.statusUser) {
+      this.statusUser.textContent = 'Not connected';
+    }
+    if (this.statusToken) {
+      this.statusToken.textContent = '—';
+    }
+    if (this.grid) {
+      this.grid.innerHTML = '';
+    }
     this.cards.clear();
   }
 
   renderCard(account) {
+    if (!this.template) return;
     const node = this.template.content.firstElementChild.cloneNode(true);
     node.dataset.accountId = account.id;
     const flipButtons = node.querySelectorAll('.flip-btn');
@@ -249,7 +296,9 @@ class Dashboard {
       }
     });
 
-    this.grid.appendChild(node);
+    if (this.grid) {
+      this.grid.appendChild(node);
+    }
     this.cards.set(account.id, node);
     this.populateCard(account.id, account);
   }
@@ -319,8 +368,21 @@ class Dashboard {
 
 (async function bootstrap() {
   patchFetchForParams();
-  const dashboard = new Dashboard();
-  dashboard.init();
+  const connectBtn = document.getElementById('connect-btn');
+  if (connectBtn) {
+    connectBtn.setAttribute('disabled', 'true');
+  }
+  try {
+    const config = await fetchRuntimeConfig();
+    if (connectBtn) {
+      connectBtn.removeAttribute('disabled');
+    }
+    const dashboard = new Dashboard(config);
+    dashboard.init();
+  } catch (error) {
+    console.error('Failed to bootstrap dashboard', error);
+    showToast('Unable to load configuration. Please try again later.', 'error');
+  }
 })();
 
 function patchFetchForParams() {
