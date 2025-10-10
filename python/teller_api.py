@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
+import tempfile
+import atexit
 from typing import Any, Dict, Iterable, Optional
 
 import requests
@@ -28,12 +31,34 @@ class TellerClient:
         self,
         environment: str,
         application_id: str,
-        certificate: Optional[str] = None,
-        private_key: Optional[str] = None,
+        certificate: Optional[str] = None, # This will now be content or path
+        private_key: Optional[str] = None, # This will now be content or path
     ) -> None:
         self.environment = environment
         self.application_id = application_id
-        self.cert_tuple = (certificate, private_key) if certificate and private_key else None
+        self.cert_tuple = None
+
+        if certificate and private_key:
+            # Check if the provided 'certificate' and 'private_key' are file paths or content
+            # For simplicity, assume if they are not existing files, they are content.
+            # A more robust check might involve trying to read them as files first.
+            if os.path.exists(certificate) and os.path.exists(private_key):
+                self.cert_tuple = (certificate, private_key)
+            else:
+                # Assume they are content and write to temporary files
+                cert_file = tempfile.NamedTemporaryFile(delete=False)
+                cert_file.write(certificate.encode())
+                cert_file.close()
+
+                key_file = tempfile.NamedTemporaryFile(delete=False)
+                key_file.write(private_key.encode())
+                key_file.close()
+
+                self.cert_tuple = (cert_file.name, key_file.name)
+
+                # Register cleanup for temporary files
+                atexit.register(os.remove, cert_file.name)
+                atexit.register(os.remove, key_file.name)
 
     # ---------------- Connect ---------------- #
     def create_connect_token(self, **kwargs) -> Dict[str, Any]:

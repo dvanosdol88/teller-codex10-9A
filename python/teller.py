@@ -9,6 +9,7 @@ import pathlib
 from typing import Optional
 
 import falcon
+from google.cloud import secretmanager
 
 try:
     from . import db, models
@@ -38,6 +39,13 @@ except ImportError:  # pragma: no cover - fallback when executed as a script
         LiveTransactionsResource,
     )  # type: ignore
     from python.teller_api import TellerClient  # type: ignore
+
+def get_secret_value(project_id: str, secret_name: str) -> str:
+    """Fetches a secret from Google Secret Manager."""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -93,12 +101,7 @@ def _default_secret_path(filename: str) -> Optional[str]:
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Teller Falcon sample server")
-    parser.add_argument("--application-id", default=os.getenv("TELLER_APPLICATION_ID"))
-    parser.add_argument(
-        "--environment",
-        default=os.getenv("TELLER_ENVIRONMENT", "sandbox"),
-        choices=["sandbox", "development", "production"],
-    )
+    parser.add_argument("--application-id", default="app_pj4c5t83p8q0ibrr8k000")
     parser.add_argument(
         "--certificate",
         default=os.getenv("TELLER_CERTIFICATE") or _default_secret_path("certificate.pem") or _default_secret_path("certificate"),
@@ -110,10 +113,35 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8001")))
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--db-echo", action="store_true")
+    parser.add_argument(
+        "--gcp-project-id", default=os.getenv("GCP_PROJECT_ID")
+    )
+    parser.add_argument(
+        "--secret-certificate-name", default=os.getenv("TELLER_SECRET_CERTIFICATE_NAME")
+    )
+    parser.add_argument(
+        "--secret-private-key-name", default=os.getenv("TELLER_SECRET_PRIVATE_KEY_NAME")
+    )
     args = parser.parse_args(argv)
+
+    # Force the environment to development mode.
+    args.environment = "development"
 
     if not args.application_id:
         parser.error("--application-id or TELLER_APPLICATION_ID is required")
+
+    # If secret names are provided via command line arguments or environment
+    # variables, fetch the certificate and private key from Google Cloud Secret
+    # Manager. This overrides any local file paths.
+    # Fetch certificate and private key content from Secret Manager if names are provided
+    if args.secret_certificate_name and args.gcp_project_id:
+        args.certificate = get_secret_value(
+            args.gcp_project_id, args.secret_certificate_name
+        )
+    if args.secret_private_key_name and args.gcp_project_id:
+        args.private_key = get_secret_value(
+            args.gcp_project_id, args.secret_private_key_name
+        )
 
     if args.environment in {"development", "production"}:
         if not args.certificate or not args.private_key:

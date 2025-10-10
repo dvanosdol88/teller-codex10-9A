@@ -134,7 +134,7 @@ class Dashboard {
   setupConnect() {
     const connectBtn = document.getElementById('connect-btn');
     const disconnectBtn = document.getElementById('disconnect-btn');
-    const connector = TellerConnect.setup({
+    const connector = window.TellerConnect.setup({
       applicationId: APPLICATION_ID,
       environment: ENVIRONMENT,
       onSuccess: async (enrollment) => {

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# OS-specific
+desktop.ini
+.DS_Store
