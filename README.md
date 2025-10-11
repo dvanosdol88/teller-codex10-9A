@@ -9,8 +9,9 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r python/requirements.txt
 export TELLER_APPLICATION_ID="<your-app-id>"
-export TELLER_CERTIFICATE="/path/to/certificate.pem"  # or the PEM contents
-export TELLER_PRIVATE_KEY="/path/to/private_key.pem"  # or the PEM contents
+#export TELLER_CERTIFICATE="/path/to/certificate.pem"  # or the PEM contents
+#export TELLER_PRIVATE_KEY="/path/to/private_key.pem"  # or the PEM contents
+## Certs are stored in the Render dashboard
 # Optional overrides
 export TELLER_ENVIRONMENT="development"
 export TELLER_APP_API_BASE_URL="/api"
