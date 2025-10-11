@@ -18,12 +18,6 @@ except Exception:
     # It's safe to proceed if python-dotenv isn't installed or .env is missing
     pass
 
-# Import google.cloud to ensure SSL certificates are loaded (even though we don't use Secret Manager)
-try:
-    from google.cloud import secretmanager  # noqa: F401
-except ImportError:
-    pass  # Optional dependency
-
 from waitress import serve
 
 try:
@@ -141,24 +135,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     if not args.environment:
         parser.error("--environment or TELLER_ENVIRONMENT is required")
 
-    # Support base64-encoded certificates via TELLER_CERTIFICATE_B64 / TELLER_PRIVATE_KEY_B64
-    if not args.certificate:
-        b64 = os.getenv("TELLER_CERTIFICATE_B64")
-        if b64:
-            try:
-                args.certificate = base64.b64decode(b64).decode("utf-8")
-                LOGGER.info("Loaded certificate from TELLER_CERTIFICATE_B64")
-            except Exception as e:
-                LOGGER.warning("Failed to decode TELLER_CERTIFICATE_B64: %s", e)
 
-    if not args.private_key:
-        b64 = os.getenv("TELLER_PRIVATE_KEY_B64")
-        if b64:
-            try:
-                args.private_key = base64.b64decode(b64).decode("utf-8")
-                LOGGER.info("Loaded private key from TELLER_PRIVATE_KEY_B64")
-            except Exception as e:
-                LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64: %s", e)
 
     if args.environment in {"development", "production"}:
         if not args.certificate or not args.private_key:
