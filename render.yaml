@@ -1,0 +1,48 @@
+databases:
+  - name: teller-db
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: teller-cached-dashboard
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r python/requirements.txt
+    startCommand: python python/teller.py
+    healthCheckPath: /api/healthz
+    autoDeploy: true
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: TELLER_APPLICATION_ID
+        sync: false
+      - key: TELLER_ENVIRONMENT
+        value: development
+      - key: TELLER_APP_API_BASE_URL
+        value: /api
+      - key: TELLER_CERTIFICATE
+        sync: false
+      - key: TELLER_PRIVATE_KEY
+        sync: false
+      - key: DATABASE_INTERNAL_URL
+        fromDatabase:
+          name: teller-db
+          property: internalConnectionString
+      - key: DATABASE_SSLMODE
+        value: require
+      # Optional Google Secret Manager integration (inherit values if set on main service):
+      # - key: GCP_PROJECT_ID
+      #   sync: false
+      # - key: TELLER_SECRET_CERTIFICATE_NAME
+      #   sync: false
+      # - key: TELLER_SECRET_PRIVATE_KEY_NAME
+      #   sync: false
+    previewEnvVars:
+      - key: TELLER_ENVIRONMENT
+        value: development
+      - key: TELLER_APP_API_BASE_URL
+        value: /api
+      # Secrets (e.g., TELLER_CERTIFICATE/PRIVATE_KEY) are inherited by previews
+      # from the main service unless overridden here.
+
