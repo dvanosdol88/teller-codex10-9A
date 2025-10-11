@@ -13,4 +13,63 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.4"
       - key: TELLER_APPLICATION_ID
-        value: "YOUR_TELLER_APPLICATION_ID"
+        value: "app_pj4c5t83p8q0ibrr8k000"
+      - key: TELLER_CERTIFICATE
+        value: |
+          -----BEGIN CERTIFICATE-----
+          MIIExjCCAq6gAwIBAgIIGGmEyR8B7GYwDQYJKoZIhvcNAQELBQAwYTELMAkGA1UE
+          BhMCR0IxEDAOBgNVBAgMB0VuZ2xhbmQxDzANBgNVBAcMBkxvbmRvbjEPMA0GA1UE
+          CgwGVGVsbGVyMR4wHAYDVQQLDBVUZWxsZXIgQXBwbGljYXRpb24gQ0EwHhcNMjUw
+          OTI4MTgxMjA4WhcNMjgwOTI3MTgxMjA4WjAkMSIwIAYDVQQDDBlhcHBfcGo0YzV0
+          ODNwOHEwaWJycjhrMDAwMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA
+          x8krm2jXrkQ3nFYZ9A5eHkZP2AnsrqCvvVge1SZVe8kFxkuSoR7i3wAGaJBnhKu/
+          AQd9c6TIvnD5vMJyGDZRKhnAxD+9rxB7sq3movBoDfDZodG+1h229h2gfmoEA7UY
+          ibGZgJaw2kFnUnNQ9x5FJvfVRmyo+YWin0YabEs8JdNYQ+4mCvMemvSZzwwi1SxH
+          3Ly1VJ7mcqG5xM8u0dv5Ma1SsmgcGKwoDub2eYcB7G2+DTPEab1A0oo+GL0prCpX
+          95PX6UZtAtMYTD5W8Vg2tPaYSyH58woZChCUFitsBJOIW/a17MqzJ/IhflV5LbGC
+          ElNGpLZ9vxiJACl++G9JLQIDAQABo4G+MIG7MA4GA1UdDwEB/wQEAwIF4DATBgNV
+          HSUEDDAKBggrBgEFBQcDAjCBkwYDVR0jBIGLMIGIgBSEq++simSLxXkuNSUKjel6
+          pmhxmqFlpGMwYTELMAkGA1UEBhMCR0IxEDAOBgNVBAgMB0VuZ2xhbmQxDzANBgNV
+          BAcMBkxvbmRvbjEPMA0GA1UECgwGVGVsbGVyMR4wHAYDVQQLDBVUZWxsZXIgQXBw
+          bGljYXRpb24gQ0GCCQDiNWG/vm85CTANBgkqhkiG9w0BAQsFAAOCAgEAaVF+wAv4
+          xOg1kH4NO0cAejyFpW/OOuUhL0g2EGZfH5huFBmTUVs2KUq212cmGI18jJRwXFh8
+          BqFYq+uUZC2gTPt01LD0427ob5eckPJGPkd24sw8vNyVqp80jDP2ZidQjOZtzh9T
+          dOsr0J/u1H74sLRkE+xhqxxHuhbTjAjIPrkxJVXqVZoM9Unbyg9ZVsjnjd/fpB53
+          c45wmF5DYDSqmKin8Ar8LIhUmKkEkyK52QnqPU62zAeCLWYQulaB0dmqciLd6qtS
+          vXceqqkXLjLdaSKGMkTmCw+q90MXC1vHaNz8Agnj9aUdOFa9xXw5tqX3HYv4ezUX
+          i/LXggW2N3wvpJjgTDxsc6svIshj+7fKPQaSGnG7moRBKLMmjoz6sgSrK46TEBoe
+          Ig89HlUa6G9WWb5vw5n5a+XtZ8V1Z+IsDHGZ9vijltp5Jr+2YkBn586vbTzy3iEc
+          dp5Jep2b2DZ99PowI2iBU6HhlOw1KKigpUv+WAlOhjBwMG5UdyiwqifchRybgjp+
+          JtGu9dJIMIXeQdDKLWMyk+57git5c35D/LSgx4N/hDYZGN2B3aBAsviO30erdAPF
+          WnCLH0ddY1GKoYrguN6KVpGeuof1X0VKEX0meDTyyEv0Sb3uuy9u2Nj7CYsKimTK
+          TjxT9QtzGM8+p8z6ursTCM4vqPO5NNmHLJc=
+          -----END CERTIFICATE-----
+      - key: TELLER_PRIVATE_KEY
+        value: |
+          -----BEGIN PRIVATE KEY-----
+          MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDHySubaNeuRDec
+          Vhn0Dl4eRk/YCeyuoK+9WB7VJlV7yQXGS5KhHuLfAAZokGeEq78BB31zpMi+cPm8
+          wnIYNlEqGcDEP72vEHuyreai8GgN8Nmh0b7WHbb2HaB+agQDtRiJsZmAlrDaQWdS
+          c1D3HkUm99VGbKj5haKfRhpsSzwl01hD7iYK8x6a9JnPDCLVLEfcvLVUnuZyobnE
+          zy7R2/kxrVKyaBwYrCgO5vZ5hwHsbb4NM8RpvUDSij4YvSmsKlf3k9fpRm0C0xhM
+          PlbxWDa09phLIfnzChkKEJQWK2wEk4hb9rXsyrMn8iF+VXktsYISU0aktn2/GIkA
+          KX74b0ktAgMBAAECggEAHM3A1GZ94gltHcRpeCmyIW9FsldhS56tzQCta/xbir3l
+          b+dpZoK2IYHhaqXsfCY+zX6E9G1SO+gR5B2spsJTWrHdJu4sV4HAM8ylWeHgk/yg
+          2UG3ioCSO6hIgVv2OYqcf7hJR07H2fpf/nUoZoMeDouLW4dC/WaU7Ehb0DfbSMs5
+          YkFU4nc4r6xEvRcvdy8gAR23Q26DcXMYBkO+ucDu+tEP9+0LVPacZtOC/l4bhtoJ
+          5QPFXpg5bpPPz27Q3pJ6bQCoOh5Ic4f6qd0Kr5Npa9ruZxQwGzVXC3Vx8Iznyg3/
+          iKirWCeh3ILC1M6VuDj+D8Jos2Iel/DJdRefCUOZCQKBgQD979IY6WzRuZ5dhtYP
+          gQOFH1jvqOOy4P1HQm4i4rdt1L62fo8X6FYNtvLvq89ExX2zkZXXjJUirHQrqu5a
+          +Wf3Eje3uQyqV3Mz7WfzXhfdOo4NCME8OZqIbkTilHHQB7rDWQAPpcO4VxrLR7X9
+          55QBwDEoG8wRzIM62PkgktQUhwKBgQDJaLezgqA09ZO+yHUGv0pApaUl7lVzHSSG
+          V1xE8/mEhirq7aW9KrPPdB1y5JdWbDN79YxEjChHlJz4a9uyI9SKWGzDnXQx/mVz
+          NoxIGnuV6silyvf7iFa9eOdYZ4ww4xhqOsoI931XzDfmEy6c2SkytDMxpo1Ynnue
+          XznLPFWVqwKBgAuEAKcYjtLD9CaRost5MkurLEFSC2FlSpccsBns5hyY9T0ZaCvR
+          YXWlwkaUKAYaXqTyCTWJLoov/+SrD7wYa1qM/PHb9nMTHCpSrdAfiD2EFkUJDJpK
+          knN1bLJJwQ+KCjIpqxMKlWGasaBeVCZ7hf6+VHxZJlv4Rks447NSdUOpAoGBALq3
+          TbYpHwR5teJkS7lZlSihZ5zmemkhVz8DthJma6ckCp2IeuIHuHJWHwboTDReUsxU
+          MxlJJf5WE79pnl5jQSKQHySpz5KZWMuagipGAtRUuHaa15JkLqWwdChMtnaL0ZKJ
+          tcriRV0jgZ7VoZze5YaP7/XTha3mHowPk7CJ2n3JAoGBANWZ0M4d++6BsMCih36B
+          /660dGeiRFa8NQTY/l/ED3zFPa4tk5DbMGQAgg/XAww0zMzFXygPBe5fTY3uo8B1
+          DjwgsrZ7Tx
+          -----END PRIVATE KEY-----
