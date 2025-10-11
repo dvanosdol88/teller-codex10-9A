@@ -38,11 +38,5 @@ services:
       #   sync: false
       # - key: TELLER_SECRET_PRIVATE_KEY_NAME
       #   sync: false
-    previewEnvVars:
-      - key: TELLER_ENVIRONMENT
-        value: development
-      - key: TELLER_APP_API_BASE_URL
-        value: /api
-      # Secrets (e.g., TELLER_CERTIFICATE/PRIVATE_KEY) are inherited by previews
-      # from the main service unless overridden here.
-
+    # Note: PR previews inherit envVars from the main service. Override in the
+    # dashboard if necessary; previewEnvVars is not supported in blueprints.
