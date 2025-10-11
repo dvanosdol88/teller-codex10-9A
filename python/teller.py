@@ -17,13 +17,7 @@ try:  # Load .env in local development if available
 except Exception:
     # It's safe to proceed if python-dotenv isn't installed or .env is missing
     pass
-
-# Import google.cloud to ensure SSL certificates are loaded (even though we don't use Secret Manager)
-try:
-    from google.cloud import secretmanager  # noqa: F401
-except ImportError:
-    pass  # Optional dependency
-
+from google.cloud import secretmanager
 from waitress import serve
 
 try:
@@ -55,7 +49,12 @@ except ImportError:  # pragma: no cover - fallback when executed as a script
     )  # type: ignore
     from python.teller_api import TellerClient  # type: ignore
 
-
+def get_secret_value(project_id: str, secret_name: str) -> str:
+    """Fetches a secret from Google Secret Manager."""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -132,7 +131,15 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--app-api-base-url",
         default=os.getenv("TELLER_APP_API_BASE_URL", "/api"),
     )
-
+    parser.add_argument(
+        "--gcp-project-id", default=os.getenv("GCP_PROJECT_ID")
+    )
+    parser.add_argument(
+        "--secret-certificate-name", default=os.getenv("TELLER_SECRET_CERTIFICATE_NAME")
+    )
+    parser.add_argument(
+        "--secret-private-key-name", default=os.getenv("TELLER_SECRET_PRIVATE_KEY_NAME")
+    )
     args = parser.parse_args(argv)
 
     if not args.application_id:
@@ -141,24 +148,39 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     if not args.environment:
         parser.error("--environment or TELLER_ENVIRONMENT is required")
 
-    # Support base64-encoded certificates via TELLER_CERTIFICATE_B64 / TELLER_PRIVATE_KEY_B64
+    # Prefer direct env/args. Only fetch from GCP Secret Manager if missing.
+    # Also allow base64 variants via TELLER_CERTIFICATE_B64 / TELLER_PRIVATE_KEY_B64.
     if not args.certificate:
         b64 = os.getenv("TELLER_CERTIFICATE_B64")
         if b64:
             try:
                 args.certificate = base64.b64decode(b64).decode("utf-8")
-                LOGGER.info("Loaded certificate from TELLER_CERTIFICATE_B64")
-            except Exception as e:
-                LOGGER.warning("Failed to decode TELLER_CERTIFICATE_B64: %s", e)
+            except Exception:
+                LOGGER.warning("Failed to decode TELLER_CERTIFICATE_B64; ignoring")
 
     if not args.private_key:
         b64 = os.getenv("TELLER_PRIVATE_KEY_B64")
         if b64:
             try:
                 args.private_key = base64.b64decode(b64).decode("utf-8")
-                LOGGER.info("Loaded private key from TELLER_PRIVATE_KEY_B64")
-            except Exception as e:
-                LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64: %s", e)
+            except Exception:
+                LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64; ignoring")
+
+    if not args.certificate and args.secret_certificate_name and args.gcp_project_id:
+        try:
+            args.certificate = get_secret_value(
+                args.gcp_project_id, args.secret_certificate_name
+            )
+        except Exception as e:
+            LOGGER.warning("Could not fetch certificate from GCP Secret Manager: %s", e)
+
+    if not args.private_key and args.secret_private_key_name and args.gcp_project_id:
+        try:
+            args.private_key = get_secret_value(
+                args.gcp_project_id, args.secret_private_key_name
+            )
+        except Exception as e:
+            LOGGER.warning("Could not fetch private key from GCP Secret Manager: %s", e)
 
     if args.environment in {"development", "production"}:
         if not args.certificate or not args.private_key:
