@@ -23,10 +23,6 @@ def build_database_url() -> str:
 
     url = os.getenv("DATABASE_INTERNAL_URL")
     if url:
-        # Convert postgresql:// to postgresql+psycopg:// for psycopg3
-        if url.startswith("postgresql://"):
-            url = "postgresql+psycopg://" + url[len("postgresql://"):]
-
         # Render also supplies DATABASE_SSLMODE which we surface as a query
         # parameter when present.
         sslmode = os.getenv("DATABASE_SSLMODE")
@@ -42,19 +38,7 @@ def create_db_engine(echo: bool = False) -> Engine:
     """Create the SQLAlchemy engine."""
 
     url = build_database_url()
-    # Mask password in log for security
-    log_url = url
-    if "@" in url and "://" in url:
-        try:
-            parts = url.split("://", 1)
-            scheme = parts[0]
-            rest = parts[1]
-            if "@" in rest:
-                creds, host = rest.split("@", 1)
-                log_url = f"{scheme}://***:***@{host}"
-        except Exception:
-            log_url = url
-    LOGGER.info("Using database %s", log_url)
+    LOGGER.info("Using database %s", url)
     return create_engine(url, echo=echo, future=True)
 
 
