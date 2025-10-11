@@ -6,7 +6,8 @@ databases:
 services:
   - type: web
     name: teller-cached-dashboard
-    env: python: "3.12"
+    runtime: python
+    pythonVersion: "3.12"
     plan: free
     region: oregon
     buildCommand: pip install -r python/requirements.txt
@@ -40,3 +41,14 @@ services:
       #   sync: false
     # Note: PR previews inherit envVars from the main service. Override in the
     # dashboard if necessary; previewEnvVars is not supported in blueprints.
+  - type: web
+    name: teller-codex10-9
+    runtime: python
+    pythonVersion: "3.12"
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r python/requirements.txt
+    startCommand: 'python python/teller.py '
+    healthCheckPath: /api/healthz
+    autoDeploy: true
+    repo: https://github.com/dvanosdol88/teller-codex10-9
