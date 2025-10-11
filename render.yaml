@@ -5,7 +5,7 @@ services:
     plan: starter
     region: oregon
     buildCommand: pip install -r python/requirements.txt
-    startCommand: 'python python/teller.py '
+    startCommand: python python/teller.py
     healthCheckPath: /api/healthz
     autoDeploy: true
     repo: https://github.com/dvanosdol88/teller-codex10-9

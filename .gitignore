@@ -16,3 +16,7 @@ __pycache__/
 # OS-specific
 desktop.ini
 .DS_Store
+
+# Local environment overrides (do not commit secrets)
+.env
+.env.*

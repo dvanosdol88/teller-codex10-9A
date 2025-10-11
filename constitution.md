@@ -74,7 +74,7 @@ Each user story MUST be:
 
 **Rationale**: Independent stories enable incremental delivery, parallel development, and MVP-first approach. If implementing only P1 delivers value, the feature is properly decomposed.
 
-### IV. Technology Agnostic Design
+### IV. Technology Agnosatic Design
 
 Specifications and plans MUST:
 - Avoid coupling to specific technologies unless justified
