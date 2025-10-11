@@ -6,7 +6,7 @@ databases:
 services:
   - type: web
     name: teller-cached-dashboard
-    env: python
+    env: python: "3.12"
     plan: free
     region: oregon
     buildCommand: pip install -r python/requirements.txt
