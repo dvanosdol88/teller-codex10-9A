@@ -12,3 +12,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.4"
+      - key: TELLER_APPLICATION_ID
+        sync: false
