@@ -7,8 +7,16 @@ import mimetypes
 import os
 import pathlib
 from typing import Optional
+import base64
 
 import falcon
+try:  # Load .env in local development if available
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    # It's safe to proceed if python-dotenv isn't installed or .env is missing
+    pass
 from google.cloud import secretmanager
 from waitress import serve
 
@@ -140,18 +148,39 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     if not args.environment:
         parser.error("--environment or TELLER_ENVIRONMENT is required")
 
-    # If secret names are provided via command line arguments or environment
-    # variables, fetch the certificate and private key from Google Cloud Secret
-    # Manager. This overrides any local file paths.
-    # Fetch certificate and private key content from Secret Manager if names are provided
-    if args.secret_certificate_name and args.gcp_project_id:
-        args.certificate = get_secret_value(
-            args.gcp_project_id, args.secret_certificate_name
-        )
-    if args.secret_private_key_name and args.gcp_project_id:
-        args.private_key = get_secret_value(
-            args.gcp_project_id, args.secret_private_key_name
-        )
+    # Prefer direct env/args. Only fetch from GCP Secret Manager if missing.
+    # Also allow base64 variants via TELLER_CERTIFICATE_B64 / TELLER_PRIVATE_KEY_B64.
+    if not args.certificate:
+        b64 = os.getenv("TELLER_CERTIFICATE_B64")
+        if b64:
+            try:
+                args.certificate = base64.b64decode(b64).decode("utf-8")
+            except Exception:
+                LOGGER.warning("Failed to decode TELLER_CERTIFICATE_B64; ignoring")
+
+    if not args.private_key:
+        b64 = os.getenv("TELLER_PRIVATE_KEY_B64")
+        if b64:
+            try:
+                args.private_key = base64.b64decode(b64).decode("utf-8")
+            except Exception:
+                LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64; ignoring")
+
+    if not args.certificate and args.secret_certificate_name and args.gcp_project_id:
+        try:
+            args.certificate = get_secret_value(
+                args.gcp_project_id, args.secret_certificate_name
+            )
+        except Exception as e:
+            LOGGER.warning("Could not fetch certificate from GCP Secret Manager: %s", e)
+
+    if not args.private_key and args.secret_private_key_name and args.gcp_project_id:
+        try:
+            args.private_key = get_secret_value(
+                args.gcp_project_id, args.secret_private_key_name
+            )
+        except Exception as e:
+            LOGGER.warning("Could not fetch private key from GCP Secret Manager: %s", e)
 
     if args.environment in {"development", "production"}:
         if not args.certificate or not args.private_key:
