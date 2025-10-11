@@ -2,7 +2,6 @@ services:
   - type: web
     name: teller-codex10-9
     runtime: python
-    pythonVersion: "3.12"
     plan: starter
     region: oregon
     buildCommand: pip install -r python/requirements.txt
@@ -10,3 +9,6 @@ services:
     healthCheckPath: /api/healthz
     autoDeploy: true
     repo: https://github.com/dvanosdol88/teller-codex10-9
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
