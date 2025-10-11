@@ -40,18 +40,18 @@ class TellerClient:
 
         if certificate and private_key:
             # Check if the provided 'certificate' and 'private_key' are file paths or content
-            # For simplicity, assume if they are not existing files, they are content.
-            # A more robust check might involve trying to read them as files first.
             if os.path.exists(certificate) and os.path.exists(private_key):
                 self.cert_tuple = (certificate, private_key)
             else:
                 # Assume they are content and write to temporary files
+                unescaped_certificate = certificate.encode().decode('unicode_escape')
                 cert_file = tempfile.NamedTemporaryFile(delete=False)
-                cert_file.write(certificate.encode())
+                cert_file.write(unescaped_certificate.encode())
                 cert_file.close()
 
+                unescaped_private_key = private_key.encode().decode('unicode_escape')
                 key_file = tempfile.NamedTemporaryFile(delete=False)
-                key_file.write(private_key.encode())
+                key_file.write(unescaped_private_key.encode())
                 key_file.close()
 
                 self.cert_tuple = (cert_file.name, key_file.name)
@@ -59,6 +59,8 @@ class TellerClient:
                 # Register cleanup for temporary files
                 atexit.register(os.remove, cert_file.name)
                 atexit.register(os.remove, key_file.name)
+
+                LOGGER.debug("Created temporary certificate files: %s, %s", cert_file.name, key_file.name)
 
     # ---------------- Connect ---------------- #
     def create_connect_token(self, **kwargs) -> Dict[str, Any]:
