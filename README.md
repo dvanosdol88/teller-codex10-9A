@@ -88,3 +88,71 @@ Schema includes:
 - `transactions` – cached transactions (pruned to the latest window returned).
 
 The repository layer handles idempotent upserts for each table so subsequent refreshes simply update the cached data.
+
+## Deployment
+
+Before deploying to production, make sure to run database migrations:
+
+```bash
+python python/teller.py migrate
+```
+
+For production deployments on Render, run this migration as a one-off job or in a pre-deploy hook to ensure the database is properly initialized before the web service starts.
+
+## Development and Testing
+
+### Running Tests
+
+This project uses pytest for testing. Tests validate functionality against both SQLite and PostgreSQL.
+
+#### Install test dependencies
+```bash
+pip install -r python/requirements.txt
+```
+
+#### Run tests with SQLite (default)
+```bash
+pytest tests/ -v
+```
+
+#### Run tests with local PostgreSQL
+First, start the PostgreSQL container:
+```bash
+docker-compose up -d
+```
+
+Then run tests with the PostgreSQL database URL:
+```bash
+export DATABASE_INTERNAL_URL="postgresql+psycopg://teller:teller_dev@localhost:5432/teller_dev"
+python python/teller.py migrate
+pytest tests/ -v
+```
+
+Stop the PostgreSQL container when done:
+```bash
+docker-compose down
+```
+
+### Continuous Integration
+
+GitHub Actions runs tests automatically on every push and pull request against both SQLite and PostgreSQL to ensure compatibility.
+
+### Database Migrations
+
+This project uses Alembic for database migrations. To run migrations:
+
+```bash
+python python/teller.py migrate
+```
+
+To verify that your models are in sync with migrations:
+
+```bash
+alembic revision --autogenerate -m "check_drift"
+# Should output "No changes detected" (important-comment)
+# Delete the generated file if it was created (important-comment)
+```
+
+### SQL Verification
+
+See [docs/sql_verification.md](docs/sql_verification.md) for SQL queries to verify data integrity and row counts in your database.
