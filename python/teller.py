@@ -19,6 +19,8 @@ except Exception:
     pass
 from google.cloud import secretmanager
 from waitress import serve
+from alembic.config import Config as AlembicConfig
+from alembic import command as alembic_command
 
 try:
     from . import db, models
@@ -48,6 +50,12 @@ except ImportError:  # pragma: no cover - fallback when executed as a script
         LiveTransactionsResource,
     )  # type: ignore
     from python.teller_api import TellerClient  # type: ignore
+
+def run_migrations() -> None:
+    """Run Alembic migrations to upgrade database to latest version."""
+    alembic_cfg = AlembicConfig("alembic.ini")
+    alembic_command.upgrade(alembic_cfg, "head")
+    LOGGER.info("Database migrations completed successfully")
 
 def get_secret_value(project_id: str, secret_name: str) -> str:
     """Fetches a secret from Google Secret Manager."""
@@ -193,7 +201,12 @@ def create_app(args: argparse.Namespace) -> falcon.App:
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
     engine = db.create_db_engine(echo=args.db_echo)
-    models.Base.metadata.create_all(engine)
+    
+    # Schema is now managed by Alembic migrations.
+    # Run `alembic upgrade head` to apply migrations before starting the app.
+    # In development, SQLite will auto-create tables on first access if needed.
+    # For production/Render, migrations must be run via job or manual command.
+    
     session_factory = db.create_session_factory(engine)
 
     teller_client = TellerClient(
@@ -242,6 +255,16 @@ def create_app(args: argparse.Namespace) -> falcon.App:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
+    # Check if first argument is 'migrate' command (important-comment)
+    import sys
+    args_to_check = argv if argv is not None else sys.argv[1:]
+    if args_to_check and len(args_to_check) > 0 and args_to_check[0] == "migrate":
+        logging.basicConfig(level=logging.INFO)
+        LOGGER.info("Running database migrations...")
+        run_migrations()
+        return
+    
+    # Otherwise parse normal server arguments (important-comment)
     args = parse_args(argv)
     app = create_app(args)
 
