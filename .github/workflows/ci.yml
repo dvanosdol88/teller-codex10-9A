@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        database: [sqlite, postgres]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: teller
+          POSTGRES_PASSWORD: teller_ci
+          POSTGRES_DB: teller_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r python/requirements.txt
+    
+    - name: Set database URL for SQLite
+      if: matrix.database == 'sqlite'
+      run: echo "DATABASE_URL=sqlite:///teller_test.db" >> $GITHUB_ENV
+    
+    - name: Set database URL for PostgreSQL
+      if: matrix.database == 'postgres'
+      run: echo "DATABASE_INTERNAL_URL=postgresql+psycopg://teller:teller_ci@localhost:5432/teller_ci" >> $GITHUB_ENV
+    
+    - name: Run database migrations
+      run: python python/teller.py migrate
+    
+    - name: Run tests
+      run: pytest tests/ -v
+    
+    - name: Verify schema is up to date
+      run: |
+        alembic revision --autogenerate -m "test_drift_check" > /tmp/alembic_output.txt 2>&1 || true
+        
+        if grep -q "Generating.*test_drift_check" /tmp/alembic_output.txt && ! grep -q "No changes detected" /tmp/alembic_output.txt; then
+          echo "ERROR: Schema drift detected! Models are out of sync with migrations."
+          cat /tmp/alembic_output.txt
+          exit 1
+        fi
+        
+        echo "✓ Schema is up to date - no drift detected"
+        
+        LATEST_REVISION=$(ls -t alembic/versions/*.py 2>/dev/null | head -n1)
+        if [ -n "$LATEST_REVISION" ] && grep -q "test_drift_check" "$LATEST_REVISION"; then
+          rm "$LATEST_REVISION"
+          echo "Cleaned up test migration file"
+        fi
