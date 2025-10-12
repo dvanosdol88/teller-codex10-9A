@@ -8,6 +8,13 @@ This example implements a single Falcon service that serves both the Teller Conn
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r python/requirements.txt
+
+# Run database migrations (required before first start)
+python python/teller.py migrate
+
+# Or use Alembic directly
+alembic upgrade head
+
 export TELLER_APPLICATION_ID="<your-app-id>"
 #export TELLER_CERTIFICATE="/path/to/certificate.pem"  # or the PEM contents
 #export TELLER_PRIVATE_KEY="/path/to/private_key.pem"  # or the PEM contents
@@ -71,10 +78,12 @@ All credentials must be provisioned via environment variables or Secret Manager 
 
 ## Database schema
 
-Tables are created automatically on boot and include:
+Tables are managed via Alembic migrations. Run `python python/teller.py migrate` or `alembic upgrade head` to create or update the schema.
+
+Schema includes:
 
 - `users` – Teller user ID and latest access token.
-- `accounts` – metadata about the user’s Teller accounts.
+- `accounts` – metadata about the user's Teller accounts.
 - `balances` – most recent cached balance per account.
 - `transactions` – cached transactions (pruned to the latest window returned).
 

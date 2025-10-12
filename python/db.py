@@ -19,11 +19,21 @@ def build_database_url() -> str:
     The Render deployment provides ``DATABASE_INTERNAL_URL``. When running
     locally we fall back to ``sqlite:///teller.db`` so developers do not need a
     Postgres instance.
+    
+    Normalizes postgres:// URLs to postgresql+psycopg:// for SQLAlchemy 2.0
+    compatibility with the psycopg driver.
     """
 
     url = os.getenv("DATABASE_INTERNAL_URL")
     if url:
-        # Render also supplies DATABASE_SSLMODE which we surface as a query
+        # Normalize postgres:// to postgresql+psycopg:// for psycopg driver
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+psycopg://", 1)
+        elif url.startswith("postgresql://"):
+            # Also handle postgresql:// without explicit driver
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        
+        # Render also supplies DATABASE_SSLMODE which we surface as a query (important-comment)
         # parameter when present.
         sslmode = os.getenv("DATABASE_SSLMODE")
         if sslmode:
@@ -35,11 +45,27 @@ def build_database_url() -> str:
 
 
 def create_db_engine(echo: bool = False) -> Engine:
-    """Create the SQLAlchemy engine."""
+    """Create the SQLAlchemy engine with connection pooling configured for Render.
+    
+    Connection pool parameters are tuned for Render's starter tier limits:
+    - pool_size=5: Maximum connections kept in the pool
+    - max_overflow=5: Additional connections allowed beyond pool_size
+    - pool_pre_ping=True: Verify connections before use (handles stale connections)
+    - pool_recycle=300: Recycle connections after 5 minutes to prevent timeouts
+    """
 
     url = build_database_url()
     LOGGER.info("Using database %s", url)
-    return create_engine(url, echo=echo, future=True)
+    
+    return create_engine(
+        url,
+        echo=echo,
+        future=True,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=5,
+        pool_recycle=300,
+    )
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
