@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import falcon
 from falcon import Request, Response
@@ -14,6 +14,13 @@ from .teller_api import TellerAPIError, TellerClient
 from .utils import ensure_json_serializable
 
 LOGGER = logging.getLogger(__name__)
+
+
+def log_enrollment_event(stage: str, **payload: Any) -> None:
+    """Emit a structured enrollment log line."""
+
+    record = {"stage": stage, **payload}
+    LOGGER.info("enrollment %s", ensure_json_serializable(record))
 
 
 def parse_bearer_token(req: Request) -> str:
@@ -75,6 +82,10 @@ class EnrollmentResource(BaseResource):
         if not access_token or not user_id:
             raise falcon.HTTPBadRequest("invalid-enrollment", "accessToken and user.id are required")
 
+        log_enrollment_event("start", user_id=user_id)
+
+        accounts_response: Optional[Dict[str, Any]] = None
+
         with self.session_scope() as session:
             repo = Repository(session)
             user = repo.upsert_user(user_id, access_token, user_payload.get("name"))
@@ -82,29 +93,54 @@ class EnrollmentResource(BaseResource):
             accounts_payload = list(self.teller.list_accounts(access_token))
             accounts = [repo.upsert_account(user, account_payload) for account_payload in accounts_payload]
 
+            log_enrollment_event(
+                "accounts_fetched",
+                user_id=user.id,
+                account_ids=[account.id for account in accounts],
+            )
+
             for account in accounts:
+                priming_result: Dict[str, Any] = {
+                    "user_id": user.id,
+                    "account_id": account.id,
+                    "balance_primed": False,
+                    "transactions_primed": False,
+                }
                 try:
                     balance = self.teller.get_account_balances(access_token, account.id)
                     repo.update_balance(account, balance)
+                    priming_result["balance_primed"] = True
                 except TellerAPIError as exc:
+                    priming_result["balance_error"] = str(exc)
                     LOGGER.warning("Failed to prime balance for %s: %s", account.id, exc)
                 try:
                     transactions = list(self.teller.get_account_transactions(access_token, account.id, count=10))
                     repo.replace_transactions(account, transactions)
+                    priming_result["transactions_primed"] = True
+                    priming_result["transaction_count"] = len(transactions)
                 except TellerAPIError as exc:
+                    priming_result["transactions_error"] = str(exc)
                     LOGGER.warning("Failed to prime transactions for %s: %s", account.id, exc)
+
+                log_enrollment_event("priming_result", **priming_result)
 
             session.flush()
 
-            resp.media = ensure_json_serializable(
-                {
-                    "user": {
-                        "id": user.id,
-                        "name": user.name,
-                    },
-                    "accounts": [serialize_account(account) for account in accounts],
-                }
-            )
+            accounts_response = {
+                "user": {"id": user.id, "name": user.name},
+                "accounts": [serialize_account(account) for account in accounts],
+            }
+
+        if accounts_response is None:
+            log_enrollment_event("finish", user_id=user_id, account_count=0)
+            return
+
+        log_enrollment_event(
+            "finish",
+            user_id=user_id,
+            account_count=len(accounts_response["accounts"]),
+        )
+        resp.media = ensure_json_serializable(accounts_response)
         self.set_no_cache(resp)
 
 
@@ -116,6 +152,10 @@ class AccountsResource(BaseResource):
             accounts = repo.list_accounts(user)
             resp.media = ensure_json_serializable(
                 {"accounts": [serialize_account(account) for account in accounts]}
+            )
+            LOGGER.info(
+                "db.accounts.response %s",
+                {"user_id": user.id, "account_ids": [account.id for account in accounts]},
             )
         self.set_no_cache(resp)
 
@@ -137,6 +177,10 @@ class CachedBalanceResource(BaseResource):
                     "cached_at": balance.cached_at,
                     "balance": balance.raw,
                 }
+            )
+            LOGGER.info(
+                "db.accounts.balance.response %s",
+                {"user_id": user.id, "account_id": account.id, "has_balance": bool(balance.raw)},
             )
         self.set_no_cache(resp)
 
@@ -163,6 +207,15 @@ class CachedTransactionsResource(BaseResource):
                     "transactions": [tx.raw for tx in transactions],
                     "cached_at": transactions[0].cached_at if transactions else None,
                 }
+            )
+            LOGGER.info(
+                "db.accounts.transactions.response %s",
+                {
+                    "user_id": user.id,
+                    "account_id": account.id,
+                    "transaction_count": len(transactions),
+                    "limit": limit,
+                },
             )
         self.set_no_cache(resp)
 
