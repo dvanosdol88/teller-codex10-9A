@@ -76,7 +76,7 @@ class IndexResource:
         if not path.exists():
             raise falcon.HTTPNotFound()
         resp.content_type = "text/html"
-        resp.text = path.read_text(encoding="utf-8")
+        resp.data = path.read_bytes()
         resp.set_header("Cache-Control", "public, max-age=60")
 
 
