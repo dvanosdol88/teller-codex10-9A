@@ -17,7 +17,7 @@ try:  # Load .env in local development if available
 except Exception:
     # It's safe to proceed if python-dotenv isn't installed or .env is missing
     pass
-from google.cloud import secretmanager
+
 from waitress import serve
 from alembic.config import Config as AlembicConfig
 from alembic import command as alembic_command
@@ -32,6 +32,7 @@ try:
         EnrollmentResource,
         LiveBalanceResource,
         LiveTransactionsResource,
+        WebhookResource,
     )
     from .teller_api import TellerClient
 except ImportError:  # pragma: no cover - fallback when executed as a script
@@ -48,6 +49,7 @@ except ImportError:  # pragma: no cover - fallback when executed as a script
         EnrollmentResource,
         LiveBalanceResource,
         LiveTransactionsResource,
+        WebhookResource,
     )  # type: ignore
     from python.teller_api import TellerClient  # type: ignore
 
@@ -57,12 +59,7 @@ def run_migrations() -> None:
     alembic_command.upgrade(alembic_cfg, "head")
     LOGGER.info("Database migrations completed successfully")
 
-def get_secret_value(project_id: str, secret_name: str) -> str:
-    """Fetches a secret from Google Secret Manager."""
-    client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -139,14 +136,17 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--app-api-base-url",
         default=os.getenv("TELLER_APP_API_BASE_URL", "/api"),
     )
+
     parser.add_argument(
-        "--gcp-project-id", default=os.getenv("GCP_PROJECT_ID")
+        "--webhook-secrets",
+        default=os.getenv("TELLER_WEBHOOK_SECRETS", ""),
+        help="Comma-separated Teller webhook signing secrets",
     )
     parser.add_argument(
-        "--secret-certificate-name", default=os.getenv("TELLER_SECRET_CERTIFICATE_NAME")
-    )
-    parser.add_argument(
-        "--secret-private-key-name", default=os.getenv("TELLER_SECRET_PRIVATE_KEY_NAME")
+        "--webhook-tolerance-seconds",
+        type=int,
+        default=int(os.getenv("TELLER_WEBHOOK_TOLERANCE_SECONDS", "180")),
+        help="Webhook signature timestamp tolerance in seconds",
     )
     args = parser.parse_args(argv)
 
@@ -174,21 +174,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
             except Exception:
                 LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64; ignoring")
 
-    if not args.certificate and args.secret_certificate_name and args.gcp_project_id:
-        try:
-            args.certificate = get_secret_value(
-                args.gcp_project_id, args.secret_certificate_name
-            )
-        except Exception as e:
-            LOGGER.warning("Could not fetch certificate from GCP Secret Manager: %s", e)
 
-    if not args.private_key and args.secret_private_key_name and args.gcp_project_id:
-        try:
-            args.private_key = get_secret_value(
-                args.gcp_project_id, args.secret_private_key_name
-            )
-        except Exception as e:
-            LOGGER.warning("Could not fetch private key from GCP Secret Manager: %s", e)
 
     if args.environment in {"development", "production"}:
         if not args.certificate or not args.private_key:
@@ -249,6 +235,13 @@ def create_app(args: argparse.Namespace) -> falcon.App:
     app.add_route(
         "/api/accounts/{account_id}/transactions",
         LiveTransactionsResource(session_factory, teller_client),
+    )
+
+    # Webhooks: configure signing secrets (comma-separated)
+    webhook_secrets = [s.strip() for s in (getattr(args, "webhook_secrets", "") or "").split(",") if s.strip()]
+    app.add_route(
+        "/api/webhooks/teller",
+        WebhookResource(webhook_secrets, tolerance_seconds=getattr(args, "webhook_tolerance_seconds", 180)),
     )
 
     return app
