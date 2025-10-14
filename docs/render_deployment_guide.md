@@ -87,11 +87,24 @@ This guide describes how to bring **teller-codex10-9A** to a production-ready st
 
 ## 4. Run database migrations on Render
 
-1. Add a **Render Job** (or pre-deploy hook) to execute migrations against the production database:
-   - **Command:** `python python/teller.py migrate`
-   - **Environment:** same environment variables as the web service.
-   - Run the job manually once before the first deployment, and add it to your deployment checklist for future schema changes.
-2. Verify the job completes successfully in the Render dashboard. If it fails, inspect logs, fix the issue locally, rerun tests, and retry.
+Render requires at least one successful service build before you can launch a one-off job. To avoid the catch-22 of "no build → no job → no migrations", seed the schema directly from your workstation using the Render database credentials, then register the recurring job once the first deploy succeeds.
+
+1. **Prime the schema from your workstation**
+   1. From the Render database detail page, copy the **External Database URL** (it contains the username, password, and host).
+   2. Temporarily export that URL so Alembic points at the hosted database:
+      ```bash
+      export DATABASE_INTERNAL_URL="<render-external-database-url>"
+      export DATABASE_SSLMODE=require
+      python python/teller.py migrate
+      ```
+      > If your shell already uses `DATABASE_URL`, you can set that variable instead—the migration command respects SQLAlchemy’s default precedence.
+   3. Confirm the command finishes with "Database migrations completed successfully". The Render database now has the same schema as your local instance.
+
+2. **(After the first successful web-service build) Create the Render migration job**
+   - In the Render dashboard, add a **Job** tied to the web service with command `python python/teller.py migrate` and the same environment variables as production.
+   - Run the job manually to verify it succeeds. Use this job for all future schema changes so migrations run in-region alongside the app.
+
+> **If the job UI still complains about a missing successful build:** trigger a deploy of the web service after step 1. The build should now pass because the database schema exists, unlocking the job creation flow.
 
 ---
 
