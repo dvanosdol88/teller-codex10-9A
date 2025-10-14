@@ -97,7 +97,7 @@ Before deploying to production, make sure to run database migrations:
 python python/teller.py migrate
 ```
 
-For production deployments on Render, run this migration as a one-off job or in a pre-deploy hook to ensure the database is properly initialized before the web service starts.
+For production deployments on Render, run this migration as a one-off job or in a pre-deploy hook to ensure the database is properly initialized before the web service starts. See [`docs/render_deployment_guide.md`](docs/render_deployment_guide.md) for a full Render runbook covering readiness, deployment, and post-launch verification.
 
 ## Development and Testing
 
