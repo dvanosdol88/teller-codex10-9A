@@ -137,6 +137,7 @@ class Dashboard {
     this.statusToken = document.getElementById('status-token');
     this.template = document.getElementById('account-card-template');
     this.cards = new Map();
+    this.connected = false;
   }
 
   init() {
@@ -193,14 +194,10 @@ class Dashboard {
     disconnectBtn?.addEventListener('click', () => {
       clearEnrollment();
       window.__tellerAccessToken = undefined;
-      this.reset();
-      if (this.statusEnvironment) {
-        this.statusEnvironment.textContent = this.config.environment;
-      }
-      setHidden(this.emptyState, false);
+      this.onDisconnected({ preserveCards: true });
       connectBtn?.focus();
       if (disconnectBtn) disconnectBtn.hidden = true;
-      showToast('Disconnected. Connect again to load data.');
+      showToast('Disconnected. Cached data remains available.');
     });
   }
 
@@ -218,6 +215,7 @@ class Dashboard {
         return;
       }
       accounts.forEach((account) => this.renderCard(account));
+      this.toggleCardInteractivity(this.connected);
     } catch (error) {
       if (error.status === 401) {
         this.reset();
@@ -232,6 +230,7 @@ class Dashboard {
 
   onConnected(enrollment) {
     window.__tellerAccessToken = enrollment.accessToken;
+    this.connected = true;
     if (this.statusUser) {
       this.statusUser.textContent = enrollment.user?.id ?? 'Connected';
     }
@@ -244,19 +243,34 @@ class Dashboard {
     const disconnect = document.getElementById('disconnect-btn');
     if (disconnect) disconnect.hidden = false;
     setHidden(this.emptyState, true);
+    this.toggleCardInteractivity(true);
   }
 
-  reset() {
+  onDisconnected({ preserveCards = false } = {}) {
+    this.connected = false;
     if (this.statusUser) {
-      this.statusUser.textContent = 'Not connected';
+      this.statusUser.textContent = preserveCards ? 'Disconnected' : 'Not connected';
     }
     if (this.statusToken) {
       this.statusToken.textContent = '—';
     }
-    if (this.grid) {
+    if (this.statusEnvironment) {
+      this.statusEnvironment.textContent = this.config.environment;
+    }
+    if (!preserveCards && this.grid) {
       this.grid.innerHTML = '';
     }
-    this.cards.clear();
+    if (!preserveCards) {
+      this.cards.clear();
+    }
+    if (!preserveCards) {
+      setHidden(this.emptyState, false);
+    }
+    this.toggleCardInteractivity(false);
+  }
+
+  reset() {
+    this.onDisconnected({ preserveCards: false });
   }
 
   renderCard(account) {
@@ -272,6 +286,10 @@ class Dashboard {
 
     const refreshBtn = node.querySelector('.refresh-btn');
     refreshBtn.addEventListener('click', async () => {
+      if (!this.connected) {
+        showToast('Connect to refresh this account.', 'info');
+        return;
+      }
       try {
         refreshBtn.disabled = true;
         refreshBtn.textContent = 'Refreshing…';
@@ -291,8 +309,8 @@ class Dashboard {
           showToast('Unable to refresh account.', 'error');
         }
       } finally {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = 'Refresh live';
+        refreshBtn.disabled = !this.connected;
+        refreshBtn.textContent = this.connected ? 'Refresh live' : 'Connect to refresh';
       }
     });
 
@@ -300,6 +318,7 @@ class Dashboard {
       this.grid.appendChild(node);
     }
     this.cards.set(account.id, node);
+    refreshBtn.disabled = !this.connected;
     this.populateCard(account.id, account);
   }
 
@@ -363,6 +382,21 @@ class Dashboard {
       empty.textContent = 'Unable to load transactions.';
       setHidden(empty, false);
     }
+  }
+
+  toggleCardInteractivity(isConnected) {
+    this.cards.forEach((card) => {
+      card.classList.toggle('is-disconnected', !isConnected);
+      const refreshBtn = card.querySelector('.refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.disabled = !isConnected;
+        if (!isConnected) {
+          refreshBtn.textContent = 'Connect to refresh';
+        } else {
+          refreshBtn.textContent = 'Refresh live';
+        }
+      }
+    });
   }
 }
 
