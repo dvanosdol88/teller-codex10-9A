@@ -39,6 +39,12 @@ class Repository:
             raise ValueError("Account payload missing id")
         account = self.session.get(models.Account, account_id)
         if account:
+            # When a customer reconnects through Teller Connect they may receive
+            # a brand new Teller ``user.id`` even though the underlying
+            # accounts are the same.  Re-associate the existing account record
+            # with the latest user so subsequent API requests made with the
+            # fresh access token can see the cached data.
+            account.user = user
             account.raw = payload
             account.name = payload.get("name")
             account.type = payload.get("type")
