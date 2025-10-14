@@ -58,6 +58,49 @@ def test_account_creation(repo):
     assert accounts[0].id == "acc_test_001"
 
 
+def test_account_reassignment_on_reenroll(repo, session_factory):
+    """Existing accounts should be re-linked when Teller issues a new user id."""
+
+    first_user = repo.upsert_user(
+        user_id="test_user_original",
+        access_token="token_original",
+        name="First User",
+    )
+    payload = {
+        "id": "acc_reassign_001",
+        "name": "Primary Checking",
+        "type": "depository",
+        "subtype": "checking",
+        "currency": "USD",
+    }
+    account = repo.upsert_account(first_user, payload)
+    repo.session.commit()
+
+    # Simulate a subsequent Teller Connect session returning a different user id
+    # for the same underlying accounts.
+    second_user = repo.upsert_user(
+        user_id="test_user_reenrolled",
+        access_token="token_reenrolled",
+        name="Second User",
+    )
+    repo.upsert_account(second_user, payload)
+    repo.session.commit()
+
+    # The existing account record should now belong to the newest user and be
+    # hidden from the original user.
+    repo.session.refresh(account)
+    assert account.user_id == second_user.id
+
+    # Verify visibility through a fresh session to mirror API behaviour.
+    with session_factory() as new_session:
+        fresh_repo = Repository(new_session)
+        first_user_accounts = fresh_repo.list_accounts(first_user)
+        reenrolled_accounts = fresh_repo.list_accounts(second_user)
+
+    assert not first_user_accounts
+    assert [acct.id for acct in reenrolled_accounts] == [account.id]
+
+
 def test_balance_update(repo, session):
     """Test balance refresh and caching."""
     user = repo.upsert_user(
