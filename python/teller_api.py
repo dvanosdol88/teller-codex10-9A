@@ -46,12 +46,24 @@ class TellerClient:
                 self.cert_tuple = (certificate, private_key)
             else:
                 # Assume they are content and write to temporary files
+                def _normalize_pem(text: str) -> str:
+                    # Convert literal \n to newlines if present and looks like PEM
+                    if "-----BEGIN" in text and "\\n" in text:
+                        text = text.replace("\\n", "\n")
+                    # Ensure trailing newline
+                    if not text.endswith("\n"):
+                        text += "\n"
+                    return text
+
+                cert_text = _normalize_pem(certificate)
+                key_text = _normalize_pem(private_key)
+
                 cert_file = tempfile.NamedTemporaryFile(delete=False)
-                cert_file.write(certificate.encode())
+                cert_file.write(cert_text.encode())
                 cert_file.close()
 
                 key_file = tempfile.NamedTemporaryFile(delete=False)
-                key_file.write(private_key.encode())
+                key_file.write(key_text.encode())
                 key_file.close()
 
                 self.cert_tuple = (cert_file.name, key_file.name)

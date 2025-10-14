@@ -35,13 +35,17 @@ The server listens on `http://localhost:8001` by default and serves both the fro
 | `TELLER_APPLICATION_ID` | Teller application identifier. |
 | `TELLER_ENVIRONMENT` | Teller environment passed to both the backend client and Teller Connect (defaults to `development`). |
 | `TELLER_APP_API_BASE_URL` | Base URL the frontend uses for API requests (defaults to `/api`). |
-| `TELLER_CERTIFICATE` | Path to the TLS certificate (development/production). |
-| `TELLER_PRIVATE_KEY` | Path to the TLS private key (development/production). |
+| `TELLER_CERTIFICATE` | Path to the TLS certificate or PEM contents (development/production). |
+| `TELLER_PRIVATE_KEY` | Path to the TLS private key or PEM contents (development/production). |
+| `TELLER_CERTIFICATE_B64` | Base64-encoded PEM contents of the certificate (alternative to `TELLER_CERTIFICATE`). |
+| `TELLER_PRIVATE_KEY_B64` | Base64-encoded PEM contents of the private key (alternative to `TELLER_PRIVATE_KEY`). |
 | `DATABASE_INTERNAL_URL` | Render Postgres URL (falls back to local SQLite). |
 | `DATABASE_SSLMODE` | SSL mode appended to the Postgres URL when provided. |
 | `GCP_PROJECT_ID` | Google Cloud project ID for Secret Manager. |
 | `TELLER_SECRET_CERTIFICATE_NAME` | The name of the secret in Google Secret Manager containing the Teller certificate. |
 | `TELLER_SECRET_PRIVATE_KEY_NAME` | The name of the secret in Google Secret Manager containing the Teller private key. |
+| `TELLER_WEBHOOK_SECRETS` | Comma-separated Teller webhook signing secrets. |
+| `TELLER_WEBHOOK_TOLERANCE_SECONDS` | Max age for webhook timestamps (default 180). |
 
 ## Google Secret Manager Integration
 
@@ -98,6 +102,18 @@ python python/teller.py migrate
 ```
 
 For production deployments on Render, run this migration as a one-off job or in a pre-deploy hook to ensure the database is properly initialized before the web service starts. See [`docs/render_deployment_guide.md`](docs/render_deployment_guide.md) for a full Render runbook covering readiness, deployment, and post-launch verification.
+
+## Webhooks
+
+The backend provides a verified webhook endpoint to receive Teller events.
+
+- Endpoint: `POST /api/webhooks/teller`
+- Configure secrets: set `TELLER_WEBHOOK_SECRETS` to a comma-separated list of active Teller signing secrets.
+- Optional: `TELLER_WEBHOOK_TOLERANCE_SECONDS` (default `180`).
+
+See `docs/webhooks.md` for signature details, local test snippet, and event handling notes.
+
+Reference: https://teller.io/docs/api/webhooks
 
 ## Development and Testing
 
@@ -156,3 +172,13 @@ alembic revision --autogenerate -m "check_drift"
 ### SQL Verification
 
 See [docs/sql_verification.md](docs/sql_verification.md) for SQL queries to verify data integrity and row counts in your database.
+
+## MCP (Render)
+
+- This repo includes a ready-to-use configuration for the Render MCP server.
+- Requirements: Docker and a Render API key.
+- Quick start:
+  - `export RENDER_API_KEY="<your-render-api-key>"`
+  - `bash scripts/run-render-mcp.sh`
+- Gemini MCP users: `.gemini/settings.json` already defines a `render` server; exporting `RENDER_API_KEY` enables it.
+- Details: see `docs/render_mcp.md`.

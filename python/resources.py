@@ -12,6 +12,11 @@ from . import models
 from .repository import Repository
 from .teller_api import TellerAPIError, TellerClient
 from .utils import ensure_json_serializable
+import hmac
+import hashlib
+import json
+import time
+from typing import List, Tuple
 
 LOGGER = logging.getLogger(__name__)
 
@@ -278,3 +283,115 @@ def serialize_account(account: models.Account) -> Dict[str, Any]:
         "subtype": account.subtype,
         "currency": account.currency,
     }
+
+
+class WebhookResource:
+    """Teller webhook receiver with signature verification.
+
+    Expects the `Teller-Signature` header and validates HMAC-SHA256 signatures
+    using one or more configured signing secrets. Supports secret rotation by
+    allowing multiple secrets.
+    """
+
+    def __init__(self, signing_secrets: List[str], tolerance_seconds: int = 180) -> None:
+        self.secrets = [s for s in (signing_secrets or []) if s]
+        self.tolerance_seconds = tolerance_seconds
+
+    @staticmethod
+    def _parse_signature_header(header: str) -> Tuple[int, List[str]]:
+        """Parse `Teller-Signature` header into (timestamp, [v1 signatures])."""
+        if not header:
+            raise falcon.HTTPUnauthorized("missing-signature", "Teller-Signature header required")
+
+        timestamp: Optional[int] = None
+        sigs: List[str] = []
+        for part in header.split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            if k == "t":
+                try:
+                    timestamp = int(v)
+                except ValueError:
+                    raise falcon.HTTPBadRequest("invalid-signature", "invalid timestamp in signature header")
+            elif k == "v1":
+                if v:
+                    sigs.append(v)
+        if timestamp is None or not sigs:
+            raise falcon.HTTPUnauthorized("invalid-signature", "missing timestamp or signature")
+        return timestamp, sigs
+
+    def _verify(self, header: str, raw_body: bytes) -> None:
+        if not self.secrets:
+            raise falcon.HTTPInternalServerError(
+                title="webhook-not-configured",
+                description="No signing secrets configured",
+            )
+
+        timestamp, signatures = self._parse_signature_header(header)
+
+        # Reject old timestamps to mitigate replay attacks
+        now = int(time.time())
+        if abs(now - timestamp) > self.tolerance_seconds:
+            raise falcon.HTTPUnauthorized("stale-signature", "signature timestamp too old")
+
+        # Create the signed message: "{timestamp}.{raw_json_body}"
+        try:
+            body_text = raw_body.decode("utf-8")
+        except Exception:
+            raise falcon.HTTPBadRequest("invalid-body", "payload must be utf-8 JSON")
+        message = f"{timestamp}.{body_text}".encode("utf-8")
+
+        # Validate against any configured secret (supports rotation)
+        for secret in self.secrets:
+            digest = hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
+            for provided in signatures:
+                if hmac.compare_digest(digest, provided):
+                    return
+
+        raise falcon.HTTPUnauthorized("signature-mismatch", "no matching signature")
+
+    def on_post(self, req: Request, resp: Response) -> None:
+        # Read raw body once; use for verification and JSON parsing
+        raw = req.bounded_stream.read() or b""
+
+        sig_header = req.get_header("Teller-Signature")
+        self._verify(sig_header, raw)
+
+        try:
+            event = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            raise falcon.HTTPBadRequest("invalid-json", "unable to parse webhook payload")
+
+        event_id = event.get("id")
+        event_type = event.get("type")
+        payload = event.get("payload") or {}
+
+        # Minimal processing + logging. Business logic can be extended here.
+        LOGGER.info(
+            "webhook.received %s",
+            ensure_json_serializable({"id": event_id, "type": event_type, "payload_keys": list(payload.keys())}),
+        )
+
+        # Handle known types with no-op side effects for now.
+        if event_type == "webhook.test":
+            resp.media = {"ok": True, "echo": event_id}
+        elif event_type == "enrollment.disconnected":
+            # payload: { enrollment_id, reason }
+            LOGGER.warning("enrollment.disconnected %s", ensure_json_serializable(payload))
+            resp.media = {"ok": True}
+        elif event_type == "transactions.processed":
+            # payload: { transactions: [...] }
+            tx_count = len(payload.get("transactions", []))
+            LOGGER.info("transactions.processed count=%d", tx_count)
+            resp.media = {"ok": True, "processed": tx_count}
+        elif event_type == "account.number_verification.processed":
+            # payload: { account_id, status }
+            LOGGER.info("account.number_verification.processed %s", ensure_json_serializable(payload))
+            resp.media = {"ok": True}
+        else:
+            LOGGER.info("webhook.unknown_type %s", event_type)
+            resp.media = {"ok": True, "ignored": True}
+
+        resp.set_header("Cache-Control", "no-store")
