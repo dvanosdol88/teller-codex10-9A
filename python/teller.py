@@ -32,7 +32,6 @@ try:
         EnrollmentResource,
         LiveBalanceResource,
         LiveTransactionsResource,
-        WebhookResource,
     )
     from .teller_api import TellerClient
 except ImportError:  # pragma: no cover - fallback when executed as a script
@@ -49,7 +48,6 @@ except ImportError:  # pragma: no cover - fallback when executed as a script
         EnrollmentResource,
         LiveBalanceResource,
         LiveTransactionsResource,
-        WebhookResource,
     )  # type: ignore
     from python.teller_api import TellerClient  # type: ignore
 
@@ -121,14 +119,14 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--environment",
         default=os.getenv("TELLER_ENVIRONMENT", "development"),
     )
-    parser.add_argument(
-        "--certificate",
-        default=os.getenv("TELLER_CERTIFICATE"),
-    )
-    parser.add_argument(
-        "--private-key",
-        default=os.getenv("TELLER_PRIVATE_KEY"),
-    )
+    # parser.add_argument(
+    #     "--certificate",
+    #     default=os.getenv("TELLER_CERTIFICATE"),
+    # )
+    # parser.add_argument(
+    #     "--private-key",
+    #     default=os.getenv("TELLER_PRIVATE_KEY"),
+    # )
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8001")))
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--db-echo", action="store_true")
@@ -157,28 +155,28 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         parser.error("--environment or TELLER_ENVIRONMENT is required")
 
     # Prefer direct env/args. Only fetch from GCP Secret Manager if missing.
-    # Also allow base64 variants via TELLER_CERTIFICATE_B64 / TELLER_PRIVATE_KEY_B64.
-    if not args.certificate:
-        b64 = os.getenv("TELLER_CERTIFICATE_B64")
-        if b64:
-            try:
-                args.certificate = base64.b64decode(b64).decode("utf-8")
-            except Exception:
-                LOGGER.warning("Failed to decode TELLER_CERTIFICATE_B64; ignoring")
+    # # Also allow base64 variants via TELLER_CERTIFICATE_B64 / TELLER_PRIVATE_KEY_B64.
+    # if not args.certificate:
+    #     b64 = os.getenv("TELLER_CERTIFICATE_B64")
+    #     if b64:
+    #         try:
+    #             args.certificate = base64.b64decode(b64).decode("utf-8")
+    #         except Exception:
+    #             LOGGER.warning("Failed to decode TELLER_CERTIFICATE_B64; ignoring")
 
-    if not args.private_key:
-        b64 = os.getenv("TELLER_PRIVATE_KEY_B64")
-        if b64:
-            try:
-                args.private_key = base64.b64decode(b64).decode("utf-8")
-            except Exception:
-                LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64; ignoring")
+    # if not args.private_key:
+    #     b64 = os.getenv("TELLER_PRIVATE_KEY_B64")
+    #     if b64:
+    #         try:
+    #             args.private_key = base64.b64decode(b64).decode("utf-8")
+    #         except Exception:
+    #             LOGGER.warning("Failed to decode TELLER_PRIVATE_KEY_B64; ignoring")
 
 
 
-    if args.environment in {"development", "production"}:
-        if not args.certificate or not args.private_key:
-            parser.error("certificate and private key are required outside of sandbox")
+    # if args.environment in {"development", "production"}:
+    #     if not args.certificate or not args.private_key:
+    #         parser.error("certificate and private key are required outside of sandbox")
 
     return args
 
@@ -195,11 +193,14 @@ def create_app(args: argparse.Namespace) -> falcon.App:
     
     session_factory = db.create_session_factory(engine)
 
+    certificate_path = "/etc/secrets/certificate.pem"
+    private_key_path = "/etc/secrets/private_key.pem"
+
     teller_client = TellerClient(
         environment=args.environment,
         application_id=args.application_id,
-        certificate=args.certificate,
-        private_key=args.private_key,
+        certificate=certificate_path,
+        private_key=private_key_path,
     )
 
     static_root = pathlib.Path(__file__).resolve().parent.parent / "static"
@@ -237,12 +238,33 @@ def create_app(args: argparse.Namespace) -> falcon.App:
         LiveTransactionsResource(session_factory, teller_client),
     )
 
-    # Webhooks: configure signing secrets (comma-separated)
-    webhook_secrets = [s.strip() for s in (getattr(args, "webhook_secrets", "") or "").split(",") if s.strip()]
-    app.add_route(
-        "/api/webhooks/teller",
-        WebhookResource(webhook_secrets, tolerance_seconds=getattr(args, "webhook_tolerance_seconds", 180)),
-    )
+    # Webhooks: attempt to import resource dynamically to avoid hard import failures
+    WebhookResource = None
+    try:
+        from .resources import WebhookResource as _WebhookResource  # type: ignore
+        WebhookResource = _WebhookResource
+    except Exception:
+        try:
+            from python.resources import WebhookResource as _WebhookResource  # type: ignore
+            WebhookResource = _WebhookResource
+        except Exception:
+            WebhookResource = None
+
+    if WebhookResource is not None:
+        webhook_secrets = [
+            s.strip() for s in (getattr(args, "webhook_secrets", "") or "").split(",") if s.strip()
+        ]
+        app.add_route(
+            "/api/webhooks/teller",
+            WebhookResource(
+                webhook_secrets,
+                tolerance_seconds=getattr(args, "webhook_tolerance_seconds", 180),
+            ),
+        )
+    else:
+        LOGGER.warning(
+            "WebhookResource not available; skipping /api/webhooks/teller route. Ensure code is up-to-date."
+        )
 
     return app
 
