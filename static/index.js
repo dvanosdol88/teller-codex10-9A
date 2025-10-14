@@ -564,6 +564,21 @@ class Dashboard {
       }
     });
   }
+
+  toggleCardInteractivity(isConnected) {
+    this.cards.forEach((card) => {
+      card.classList.toggle('is-disconnected', !isConnected);
+      const refreshBtn = card.querySelector('.refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.disabled = !isConnected;
+        if (!isConnected) {
+          refreshBtn.textContent = 'Connect to refresh';
+        } else {
+          refreshBtn.textContent = 'Refresh live';
+        }
+      }
+    });
+  }
 }
 
 (async function bootstrap() {
